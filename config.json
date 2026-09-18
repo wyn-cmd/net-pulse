@@ -1,0 +1,6 @@
+{
+  "check_interval_seconds": 5,
+  "alert_on_unknown_ports": true,
+  "monitored_ports": [80, 443, 22, 53],
+  "log_file": "net_events.json"
+}
