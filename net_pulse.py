@@ -5,6 +5,8 @@ import sys
 import time
 import psutil
 
+__version__ = "0.1.0"
+
 def load_config(config_path):
     if os.path.exists(config_path):
         with open(config_path, 'r') as f:
@@ -52,6 +54,7 @@ def main():
     parser.add_argument("--interval", type=int, default=5, help="Check interval in seconds")
     parser.add_argument("--config", type=str, default="config.json", help="Path to config file")
     parser.add_argument("--log", type=str, default="net_events.json", help="Path to JSON log file")
+    parser.add_argument("--version", action="version", version=f"NetPulse {__version__}")
     args = parser.parse_args()
 
     config = load_config(args.config)

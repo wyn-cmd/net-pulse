@@ -27,3 +27,7 @@ pip install -r requirements.txt
 Run the monitor with default settings:
 
 python3 net_pulse.py --interval 5 --log net_events.json
+
+Check the installed version:
+
+python3 net_pulse.py --version
