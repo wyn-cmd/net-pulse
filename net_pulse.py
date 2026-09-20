@@ -95,6 +95,7 @@ def main() -> None:
     logger.info(f"Starting NetPulse monitor. Logging to {log_file}...")
     
     # Store unique connection signatures to prevent duplicate logging
+    # within the current monitoring session.
     seen_conns: Set[Tuple[str, Optional[str], str, Optional[int]]] = set()
 
     try:
