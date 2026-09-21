@@ -17,6 +17,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger("NetPulse")
 
+def format_bytes(size: float) -> str:
+    # Converts a raw byte count into a human-readable string
+    # with appropriate units (B, KB, MB, GB).
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size < 1024.0:
+            return f"{size:.2f} {unit}"
+        size /= 1024.0
+    return f"{size:.2f} PB"
+
 def load_config(config_path: str) -> Dict[str, Any]:
     """Loads configuration from a JSON file, falling back to defaults."""
     defaults = {
