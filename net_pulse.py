@@ -17,8 +17,8 @@ logging.basicConfig(
 logger = logging.getLogger("NetPulse")
 
 
+# Converts raw bytes to a human-readable string with units
 def format_bytes(size: float) -> str:
-    """Converts a raw byte count into a human-readable string with appropriate units."""
     for unit in ["B", "KB", "MB", "GB", "TB"]:
         if size < 1024.0:
             return f"{size:.2f} {unit}"
@@ -26,8 +26,8 @@ def format_bytes(size: float) -> str:
     return f"{size:.2f} PB"
 
 
+# Load config from JSON; use defaults if file is missing or invalid
 def load_config(config_path: str) -> Dict[str, Any]:
-    """Loads configuration from a JSON file, falling back to sensible defaults if missing or invalid."""
     defaults = {
         "check_interval_seconds": 5,
         "alert_on_unknown_ports": True,
@@ -46,8 +46,8 @@ def load_config(config_path: str) -> Dict[str, Any]:
         return defaults
 
 
+# Get active network connections with status ESTABLISHED or LISTEN
 def get_active_connections() -> List[Dict[str, Any]]:
-    """Retrieves active network connections with status ESTABLISHED or LISTEN."""
     connections: List[Dict[str, Any]] = []
     try:
         for conn in psutil.net_connections(kind="inet"):
@@ -80,8 +80,8 @@ def get_active_connections() -> List[Dict[str, Any]]:
     return connections
 
 
+# Append a network event entry to the JSONL log file
 def log_event(log_file: str, event: Dict[str, Any]) -> None:
-    """Appends a network event entry to the target JSONL log file."""
     try:
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(event) + "\n")
