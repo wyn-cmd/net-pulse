@@ -31,3 +31,9 @@ python3 net_pulse.py --interval 5 --log net_events.json
 Check the installed version:
 
 python3 net_pulse.py --version
+
+## Tests
+
+The helper functions are covered by stdlib unittest cases, so no extra dependency is needed:
+
+python3 -m unittest test_net_pulse -v
