@@ -1,3 +1,5 @@
+# NetPulse network monitoring tool
+
 import argparse
 import json
 import logging
@@ -17,7 +19,7 @@ logging.basicConfig(
 logger = logging.getLogger("NetPulse")
 
 
-# Converts raw bytes to a human-readable string with units
+# Converts raw bytes into a human-readable string with units
 def format_bytes(size: float) -> str:
     for unit in ["B", "KB", "MB", "GB", "TB"]:
         if size < 1024.0:
@@ -26,7 +28,7 @@ def format_bytes(size: float) -> str:
     return f"{size:.2f} PB"
 
 
-# Load config from JSON; use defaults if file is missing or invalid
+# Loads config from JSON, falling back to defaults if missing or invalid
 def load_config(config_path: str) -> Dict[str, Any]:
     defaults = {
         "check_interval_seconds": 5,
@@ -46,7 +48,7 @@ def load_config(config_path: str) -> Dict[str, Any]:
         return defaults
 
 
-# Get active network connections with status ESTABLISHED or LISTEN
+# Retrieves active network connections with status ESTABLISHED or LISTEN
 def get_active_connections() -> List[Dict[str, Any]]:
     connections: List[Dict[str, Any]] = []
     try:
@@ -80,7 +82,7 @@ def get_active_connections() -> List[Dict[str, Any]]:
     return connections
 
 
-# Append a network event entry to the JSONL log file
+# Appends a network event entry to the JSONL log file
 def log_event(log_file: str, event: Dict[str, Any]) -> None:
     try:
         with open(log_file, "a", encoding="utf-8") as f:
