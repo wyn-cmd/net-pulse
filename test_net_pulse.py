@@ -6,7 +6,7 @@ import os
 import tempfile
 import unittest
 
-from net_pulse import format_bytes, load_config, log_event, _local_port
+from net_pulse import format_bytes, load_config, log_event, _local_port, _monitored_ports_set
 
 
 class FormatBytesTests(unittest.TestCase):
@@ -96,6 +96,18 @@ class LocalPortTests(unittest.TestCase):
 
     def test_an_ipv6_address_returns_its_port(self):
         self.assertEqual(_local_port("::1:22"), 22)
+
+
+class MonitoredPortsSetTests(unittest.TestCase):
+
+    def test_a_list_becomes_a_set(self):
+        self.assertEqual(_monitored_ports_set([80, 443, 80]), {80, 443})
+
+    def test_a_wrong_type_falls_back_to_an_empty_set_not_a_crash(self):
+        self.assertEqual(_monitored_ports_set(443), set())
+
+    def test_a_missing_value_via_default_falls_back_to_an_empty_set(self):
+        self.assertEqual(_monitored_ports_set([]), set())
 
 
 if __name__ == "__main__":

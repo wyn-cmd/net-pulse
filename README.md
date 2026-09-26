@@ -34,7 +34,7 @@ python3 net_pulse.py --version
 
 ## Unknown port alerting
 
-`config.json` sets `monitored_ports` (a list of expected local ports) and `alert_on_unknown_ports` (true by default). A new connection whose local port is not in `monitored_ports` is logged at WARNING level instead of INFO, and every JSON event on disk carries an `unknown_port` boolean so a downstream script can filter for it without re-parsing the log line.
+`config.json` sets `monitored_ports` (a list of expected local ports) and `alert_on_unknown_ports` (true by default). A new connection whose local port is not in `monitored_ports` is logged at WARNING level instead of INFO, and every JSON event on disk carries an `unknown_port` boolean so a downstream script can filter for it without re-parsing the log line. A `monitored_ports` value that is not a JSON list (for example a bare number) is logged as a config error and treated as an empty set rather than crashing the monitor.
 
 ## Tests
 

@@ -103,6 +103,18 @@ def _local_port(local_addr: Optional[str]) -> Optional[int]:
         return None
 
 
+# Coerces the monitored_ports config value into a set of ports, logging and
+# falling back to an empty set when the config carries the wrong JSON type.
+def _monitored_ports_set(raw_monitored_ports: Any) -> Set[int]:
+    if isinstance(raw_monitored_ports, list):
+        return set(raw_monitored_ports)
+    logger.error(
+        "monitored_ports in the config must be a list, got %s. Using an empty set.",
+        type(raw_monitored_ports).__name__,
+    )
+    return set()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="NetPulse network connection monitor")
     parser.add_argument("--interval", type=int, help="Check interval in seconds")
@@ -116,7 +128,7 @@ def main() -> None:
     interval = args.interval if args.interval is not None else config.get("check_interval_seconds", 5)
     log_file = args.log if args.log is not None else config.get("log_file", "net_events.json")
     alert_on_unknown_ports = config.get("alert_on_unknown_ports", True)
-    monitored_ports = set(config.get("monitored_ports", []))
+    monitored_ports = _monitored_ports_set(config.get("monitored_ports", []))
 
     logger.info("Starting NetPulse monitor. Logging to %s...", log_file)
     
