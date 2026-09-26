@@ -91,6 +91,18 @@ def log_event(log_file: str, event: Dict[str, Any]) -> None:
         logger.error("Could not write to log file %s: %s", log_file, e)
 
 
+# Extracts the integer port out of a "host:port" address, or None when the
+# address is not in that shape (for example the "unknown" placeholder used
+# when a connection has no local address at all).
+def _local_port(local_addr: Optional[str]) -> Optional[int]:
+    if not local_addr or ":" not in local_addr:
+        return None
+    try:
+        return int(local_addr.rsplit(":", 1)[1])
+    except ValueError:
+        return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="NetPulse network connection monitor")
     parser.add_argument("--interval", type=int, help="Check interval in seconds")
@@ -103,6 +115,8 @@ def main() -> None:
     
     interval = args.interval if args.interval is not None else config.get("check_interval_seconds", 5)
     log_file = args.log if args.log is not None else config.get("log_file", "net_events.json")
+    alert_on_unknown_ports = config.get("alert_on_unknown_ports", True)
+    monitored_ports = set(config.get("monitored_ports", []))
 
     logger.info("Starting NetPulse monitor. Logging to %s...", log_file)
     
@@ -114,15 +128,32 @@ def main() -> None:
                 conn_key = (c["local_addr"], c["remote_addr"], c["status"], c["pid"])
                 if conn_key not in seen_conns:
                     seen_conns.add(conn_key)
-                    log_event(log_file, c)
-                    logger.info(
-                        "New connection: %s (PID %s) %s -> %s [%s]",
-                        c["process"],
-                        c["pid"],
-                        c["local_addr"],
-                        c["remote_addr"],
-                        c["status"],
+                    local_port = _local_port(c["local_addr"])
+                    is_unknown_port = (
+                        alert_on_unknown_ports
+                        and local_port is not None
+                        and local_port not in monitored_ports
                     )
+                    c["unknown_port"] = is_unknown_port
+                    log_event(log_file, c)
+                    if is_unknown_port:
+                        logger.warning(
+                            "Unmonitored port: %s (PID %s) %s -> %s [%s]",
+                            c["process"],
+                            c["pid"],
+                            c["local_addr"],
+                            c["remote_addr"],
+                            c["status"],
+                        )
+                    else:
+                        logger.info(
+                            "New connection: %s (PID %s) %s -> %s [%s]",
+                            c["process"],
+                            c["pid"],
+                            c["local_addr"],
+                            c["remote_addr"],
+                            c["status"],
+                        )
             
             time.sleep(interval)
     except KeyboardInterrupt:

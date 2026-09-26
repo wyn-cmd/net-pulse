@@ -6,7 +6,7 @@ import os
 import tempfile
 import unittest
 
-from net_pulse import format_bytes, load_config, log_event
+from net_pulse import format_bytes, load_config, log_event, _local_port
 
 
 class FormatBytesTests(unittest.TestCase):
@@ -81,6 +81,21 @@ class LogEventTests(TempConfigTestCase):
         missing_dir = os.path.join(self.tmpdir.name, "nested", "net_events.json")
         log_event(missing_dir, {"status": "LISTEN"})
         self.assertFalse(os.path.exists(missing_dir))
+
+
+class LocalPortTests(unittest.TestCase):
+
+    def test_an_ipv4_address_returns_its_port(self):
+        self.assertEqual(_local_port("127.0.0.1:8080"), 8080)
+
+    def test_the_unknown_placeholder_returns_none(self):
+        self.assertIsNone(_local_port("unknown"))
+
+    def test_none_input_returns_none(self):
+        self.assertIsNone(_local_port(None))
+
+    def test_an_ipv6_address_returns_its_port(self):
+        self.assertEqual(_local_port("::1:22"), 22)
 
 
 if __name__ == "__main__":
