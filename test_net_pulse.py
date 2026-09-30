@@ -60,6 +60,23 @@ class LoadConfigTests(TempConfigTestCase):
         self.assertEqual(config["check_interval_seconds"], 5)
         self.assertEqual(config["monitored_ports"], [80, 443, 22, 53])
 
+    def test_a_json_array_falls_back_to_defaults(self):
+        # Valid JSON, wrong shape: spreading a list used to raise TypeError.
+        path = self.write_file("config.json", "[80, 443]")
+        config = load_config(path)
+        self.assertEqual(config["check_interval_seconds"], 5)
+        self.assertTrue(config["alert_on_unknown_ports"])
+
+    def test_json_null_falls_back_to_defaults(self):
+        path = self.write_file("config.json", "null")
+        config = load_config(path)
+        self.assertEqual(config["log_file"], "net_events.json")
+
+    def test_a_json_string_falls_back_to_defaults(self):
+        path = self.write_file("config.json", '"just a string"')
+        config = load_config(path)
+        self.assertEqual(config["monitored_ports"], [80, 443, 22, 53])
+
 
 class LogEventTests(TempConfigTestCase):
 

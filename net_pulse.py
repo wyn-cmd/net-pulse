@@ -42,10 +42,25 @@ def load_config(config_path: str) -> Dict[str, Any]:
 
     try:
         with open(config_path, "r", encoding="utf-8") as f:
-            return {**defaults, **json.load(f)}
+            loaded = json.load(f)
     except (json.JSONDecodeError, OSError) as e:
         logger.error("Failed to load config from %s: %s. Using defaults.", config_path, e)
         return defaults
+
+    # A file can parse as valid JSON and still be the wrong shape, for
+    # example a bare list, a string or null. Spreading that into the
+    # defaults raises a TypeError, so check the shape here and name the
+    # file in the message instead of letting the caller crash with a
+    # traceback that never mentions the config at all.
+    if not isinstance(loaded, dict):
+        logger.error(
+            "Config %s must hold a JSON object, got %s. Using defaults.",
+            config_path,
+            type(loaded).__name__,
+        )
+        return defaults
+
+    return {**defaults, **loaded}
 
 
 # Retrieves active network connections with status ESTABLISHED or LISTEN
