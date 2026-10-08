@@ -33,7 +33,7 @@ class TempConfigTestCase(unittest.TestCase):
 
     def write_file(self, name: str, contents: str) -> str:
         path = os.path.join(self.tmpdir.name, name)
-        with open(path, "w") as handle:
+        with open(path, "w", encoding="utf-8") as handle:
             handle.write(contents)
         return path
 
@@ -86,7 +86,7 @@ class LogEventTests(TempConfigTestCase):
         log_event(path, event)
         log_event(path, event)
 
-        with open(path) as handle:
+        with open(path, encoding="utf-8") as handle:
             lines = [json.loads(line) for line in handle if line.strip()]
 
         # Two calls produce two separate JSON objects, one per line.
