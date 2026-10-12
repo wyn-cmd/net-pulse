@@ -106,15 +106,14 @@ def log_event(log_file: str, event: Dict[str, Any]) -> None:
         logger.error("Could not write to log file %s: %s", log_file, e)
 
 
-# Extracts the integer port out of a "host:port" address, or None when the
-# address is not in that shape (for example the "unknown" placeholder used
-# when a connection has no local address at all).
+# Extracts the integer port out of a host:port address, or None when the
+# address is not in that shape such as the unknown placeholder.
 def _local_port(local_addr: Optional[str]) -> Optional[int]:
     if not local_addr or ":" not in local_addr:
         return None
     try:
         return int(local_addr.rsplit(":", 1)[1])
-    except ValueError:
+    except (ValueError, IndexError):
         return None
 
 
