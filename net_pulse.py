@@ -121,7 +121,7 @@ def _local_port(local_addr: Optional[str]) -> Optional[int]:
 # falling back to an empty set when the config carries the wrong JSON type.
 def _monitored_ports_set(raw_monitored_ports: Any) -> Set[int]:
     if isinstance(raw_monitored_ports, list):
-        return set(raw_monitored_ports)
+        return {int(p) for p in raw_monitored_ports}
     logger.error(
         "monitored_ports in the config must be a list, got %s. Using an empty set.",
         type(raw_monitored_ports).__name__,
