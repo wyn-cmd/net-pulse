@@ -3,6 +3,7 @@
 import argparse
 import json
 import logging
+import math
 import os
 import sys
 import time
@@ -10,6 +11,9 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import psutil
 
 __version__ = "0.1.0"
+
+# Interval used when the config and the command line both leave it unset.
+DEFAULT_INTERVAL_SECONDS = 5
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,7 +35,7 @@ def format_bytes(size: float) -> str:
 # Loads config from JSON, falling back to defaults if missing or invalid
 def load_config(config_path: str) -> Dict[str, Any]:
     defaults = {
-        "check_interval_seconds": 5,
+        "check_interval_seconds": DEFAULT_INTERVAL_SECONDS,
         "alert_on_unknown_ports": True,
         "monitored_ports": [80, 443, 22, 53],
         "log_file": "net_events.json",
@@ -129,6 +133,39 @@ def _monitored_ports_set(raw_monitored_ports: Any) -> Set[int]:
     return set()
 
 
+# Turns the configured check interval into a usable number of seconds.
+# A string or null raises TypeError and an infinity raises OverflowError,
+# both inside time.sleep, while zero or a negative number either spins the
+# loop with no pause or raises ValueError. None of those name the config key,
+# so the value is checked here and an unusable one falls back to the default.
+def _interval_seconds(configured: Any, default: float = DEFAULT_INTERVAL_SECONDS) -> float:
+    if isinstance(configured, bool) or not isinstance(configured, (int, float)):
+        logger.error(
+            "check_interval_seconds must be a number, got %s. Using %s seconds.",
+            type(configured).__name__,
+            default,
+        )
+        return float(default)
+
+    if not math.isfinite(configured):
+        logger.error(
+            "check_interval_seconds must be a finite number, got %r. Using %s seconds.",
+            configured,
+            default,
+        )
+        return float(default)
+
+    if configured <= 0:
+        logger.error(
+            "check_interval_seconds must be greater than zero, got %r. Using %s seconds.",
+            configured,
+            default,
+        )
+        return float(default)
+
+    return float(configured)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="NetPulse network connection monitor")
     parser.add_argument("--interval", type=int, help="Check interval in seconds")
@@ -139,7 +176,13 @@ def main() -> None:
 
     config = load_config(args.config)
     
-    interval = args.interval if args.interval is not None else config.get("check_interval_seconds", 5)
+    # The command line wins over the config file, and whichever value survives
+    # is validated before the loop reaches time.sleep with it.
+    raw_interval = (
+        args.interval if args.interval is not None
+        else config.get("check_interval_seconds", DEFAULT_INTERVAL_SECONDS)
+    )
+    interval = _interval_seconds(raw_interval)
     log_file = args.log if args.log is not None else config.get("log_file", "net_events.json")
     alert_on_unknown_ports = config.get("alert_on_unknown_ports", True)
     monitored_ports = _monitored_ports_set(config.get("monitored_ports", []))

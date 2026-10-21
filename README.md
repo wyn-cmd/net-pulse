@@ -32,6 +32,8 @@ Check the installed version:
 
 python3 net_pulse.py --version
 
+`check_interval_seconds` (or `--interval`) must be a positive number. A value of the wrong type, zero, a negative number or an infinity is logged as a config error and the monitor falls back to the 5 second default instead of failing inside the polling loop, so a typo in the config no longer stops collection after the first pass.
+
 ## Unknown port alerting
 
 `config.json` sets `monitored_ports` (a list of expected local ports) and `alert_on_unknown_ports` (true by default). A new connection whose local port is not in `monitored_ports` is logged at WARNING level instead of INFO, and every JSON event on disk carries an `unknown_port` boolean so a downstream script can filter for it without re-parsing the log line. A `monitored_ports` value that is not a JSON list (for example a bare number) is logged as a config error and treated as an empty set rather than crashing the monitor.

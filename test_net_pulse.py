@@ -6,7 +6,14 @@ import os
 import tempfile
 import unittest
 
-from net_pulse import format_bytes, load_config, log_event, _local_port, _monitored_ports_set
+from net_pulse import (
+    format_bytes,
+    load_config,
+    log_event,
+    _interval_seconds,
+    _local_port,
+    _monitored_ports_set,
+)
 
 
 class FormatBytesTests(unittest.TestCase):
@@ -125,6 +132,41 @@ class MonitoredPortsSetTests(unittest.TestCase):
 
     def test_a_missing_value_via_default_falls_back_to_an_empty_set(self):
         self.assertEqual(_monitored_ports_set([]), set())
+
+
+class IntervalSecondsTests(unittest.TestCase):
+
+    def test_an_integer_interval_is_kept(self):
+        self.assertEqual(_interval_seconds(30), 30.0)
+
+    def test_a_fractional_interval_is_kept(self):
+        # Sub-second polling is legitimate, so floats are not rounded away.
+        self.assertEqual(_interval_seconds(0.5), 0.5)
+
+    def test_a_string_from_the_config_falls_back_to_the_default(self):
+        # time.sleep would raise TypeError on this value inside the loop.
+        self.assertEqual(_interval_seconds("30"), 5.0)
+
+    def test_null_from_the_config_falls_back_to_the_default(self):
+        self.assertEqual(_interval_seconds(None), 5.0)
+
+    def test_zero_falls_back_to_the_default(self):
+        # A zero interval would spin the loop with no pause between passes.
+        self.assertEqual(_interval_seconds(0), 5.0)
+
+    def test_a_negative_interval_falls_back_to_the_default(self):
+        self.assertEqual(_interval_seconds(-3), 5.0)
+
+    def test_an_infinite_interval_falls_back_to_the_default(self):
+        # json.loads accepts Infinity, and time.sleep(inf) raises OverflowError.
+        self.assertEqual(_interval_seconds(float("inf")), 5.0)
+
+    def test_a_boolean_falls_back_to_the_default(self):
+        # True is an int in Python but is never a sensible interval.
+        self.assertEqual(_interval_seconds(True), 5.0)
+
+    def test_an_explicit_default_is_used_for_the_fallback(self):
+        self.assertEqual(_interval_seconds("nope", default=7), 7.0)
 
 
 if __name__ == "__main__":
