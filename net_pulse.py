@@ -23,16 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger("NetPulse")
 
 
-# Converts raw bytes into a human-readable string with units
-def format_bytes(size: float) -> str:
-    for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if size < 1024.0:
-            return f"{size:.2f} {unit}"
-        size /= 1024.0
-    return f"{size:.2f} PB"
-
-
-# Loads config from JSON, falling back to defaults if missing or invalid
+# Loads config from JSON and merges it with defaults if the file is missing or invalid.
 def load_config(config_path: str) -> Dict[str, Any]:
     defaults = {
         "check_interval_seconds": DEFAULT_INTERVAL_SECONDS,
@@ -51,23 +42,15 @@ def load_config(config_path: str) -> Dict[str, Any]:
         logger.error("Failed to load config from %s: %s. Using defaults.", config_path, e)
         return defaults
 
-    # A file can parse as valid JSON and still be the wrong shape, for
-    # example a bare list, a string or null. Spreading that into the
-    # defaults raises a TypeError, so check the shape here and name the
-    # file in the message instead of letting the caller crash with a
-    # traceback that never mentions the config at all.
+    # Check that the JSON root is an object to avoid TypeErrors when merging with defaults.
     if not isinstance(loaded, dict):
-        logger.error(
-            "Config %s must hold a JSON object, got %s. Using defaults.",
-            config_path,
-            type(loaded).__name__,
-        )
+        logger.error("Config %s must hold a JSON object, got %s. Using defaults.", config_path, type(loaded).__name__)
         return defaults
 
     return {**defaults, **loaded}
 
 
-# Retrieves active network connections with status ESTABLISHED or LISTEN
+# Retrieves active network connections with status ESTABLISHED or LISTEN.
 def get_active_connections() -> List[Dict[str, Any]]:
     connections: List[Dict[str, Any]] = []
     try:
@@ -101,7 +84,7 @@ def get_active_connections() -> List[Dict[str, Any]]:
     return connections
 
 
-# Appends a network event entry to the JSONL log file
+# Appends a network event entry to the JSONL log file.
 def log_event(log_file: str, event: Dict[str, Any]) -> None:
     try:
         with open(log_file, "a", encoding="utf-8") as f:
@@ -110,8 +93,7 @@ def log_event(log_file: str, event: Dict[str, Any]) -> None:
         logger.error("Could not write to log file %s: %s", log_file, e)
 
 
-# Extracts the integer port out of a host:port address, or None when the
-# address is not in that shape such as the unknown placeholder.
+# Extracts the integer port from a host:port address string.
 def _local_port(local_addr: Optional[str]) -> Optional[int]:
     if not local_addr or ":" not in local_addr:
         return None
@@ -121,46 +103,29 @@ def _local_port(local_addr: Optional[str]) -> Optional[int]:
         return None
 
 
-# Coerces the monitored_ports config value into a set of ports, logging and
-# falling back to an empty set when the config carries the wrong JSON type.
+# Validates the monitored_ports list and returns a set of integers.
 def _monitored_ports_set(raw_monitored_ports: Any) -> Set[int]:
-    if isinstance(raw_monitored_ports, list):
-        return {int(p) for p in raw_monitored_ports}
-    logger.error(
-        "monitored_ports in the config must be a list, got %s. Using an empty set.",
-        type(raw_monitored_ports).__name__,
-    )
-    return set()
+    if not isinstance(raw_monitored_ports, list):
+        logger.error("monitored_ports in the config must be a list, got %s. Using an empty set.", type(raw_monitored_ports).__name__)
+        return set()
+
+    ports = set()
+    for p in raw_monitored_ports:
+        try:
+            ports.add(int(p))
+        except (ValueError, TypeError):
+            logger.warning("Ignoring invalid port value in config: %s", p)
+    return ports
 
 
-# Turns the configured check interval into a usable number of seconds.
-# A string or null raises TypeError and an infinity raises OverflowError,
-# both inside time.sleep, while zero or a negative number either spins the
-# loop with no pause or raises ValueError. None of those name the config key,
-# so the value is checked here and an unusable one falls back to the default.
+# Validates that the check interval is a finite number greater than zero.
 def _interval_seconds(configured: Any, default: float = DEFAULT_INTERVAL_SECONDS) -> float:
     if isinstance(configured, bool) or not isinstance(configured, (int, float)):
-        logger.error(
-            "check_interval_seconds must be a number, got %s. Using %s seconds.",
-            type(configured).__name__,
-            default,
-        )
+        logger.error("check_interval_seconds must be a number, got %s. Using %s seconds.", type(configured).__name__, default)
         return float(default)
 
-    if not math.isfinite(configured):
-        logger.error(
-            "check_interval_seconds must be a finite number, got %r. Using %s seconds.",
-            configured,
-            default,
-        )
-        return float(default)
-
-    if configured <= 0:
-        logger.error(
-            "check_interval_seconds must be greater than zero, got %r. Using %s seconds.",
-            configured,
-            default,
-        )
+    if not math.isfinite(configured) or configured <= 0:
+        logger.error("check_interval_seconds must be a finite number greater than zero, got %r. Using %s seconds.", configured, default)
         return float(default)
 
     return float(configured)
@@ -176,14 +141,11 @@ def main() -> None:
 
     config = load_config(args.config)
     
-    # The command line wins over the config file, and whichever value survives
-    # is validated before the loop reaches time.sleep with it.
-    raw_interval = (
-        args.interval if args.interval is not None
-        else config.get("check_interval_seconds", DEFAULT_INTERVAL_SECONDS)
-    )
+    # Command line arguments override configuration file values.
+    raw_interval = args.interval if args.interval is not None else config.get("check_interval_seconds", DEFAULT_INTERVAL_SECONDS)
     interval = _interval_seconds(raw_interval)
-    log_file = args.log if args.log is not None else config.get("log_file", "net_events.json")
+    
+    log_file = args.log or config.get("log_file", "net_events.json")
     alert_on_unknown_ports = config.get("alert_on_unknown_ports", True)
     monitored_ports = _monitored_ports_set(config.get("monitored_ports", []))
 
@@ -195,34 +157,30 @@ def main() -> None:
         while True:
             for c in get_active_connections():
                 conn_key = (c["local_addr"], c["remote_addr"], c["status"], c["pid"])
-                if conn_key not in seen_conns:
-                    seen_conns.add(conn_key)
-                    local_port = _local_port(c["local_addr"])
-                    is_unknown_port = (
-                        alert_on_unknown_ports
-                        and local_port is not None
-                        and local_port not in monitored_ports
+                if conn_key in seen_conns:
+                    continue
+                
+                seen_conns.add(conn_key)
+                local_port = _local_port(c["local_addr"])
+                is_unknown_port = (
+                    alert_on_unknown_ports
+                    and local_port is not None
+                    and local_port not in monitored_ports
+                )
+                
+                c["unknown_port"] = is_unknown_port
+                log_event(log_file, c)
+
+                if is_unknown_port:
+                    logger.warning(
+                        "Unmonitored port: %s (PID %s) %s -> %s [%s]",
+                        c["process"], c["pid"], c["local_addr"], c["remote_addr"], c["status"],
                     )
-                    c["unknown_port"] = is_unknown_port
-                    log_event(log_file, c)
-                    if is_unknown_port:
-                        logger.warning(
-                            "Unmonitored port: %s (PID %s) %s -> %s [%s]",
-                            c["process"],
-                            c["pid"],
-                            c["local_addr"],
-                            c["remote_addr"],
-                            c["status"],
-                        )
-                    else:
-                        logger.info(
-                            "New connection: %s (PID %s) %s -> %s [%s]",
-                            c["process"],
-                            c["pid"],
-                            c["local_addr"],
-                            c["remote_addr"],
-                            c["status"],
-                        )
+                else:
+                    logger.info(
+                        "New connection: %s (PID %s) %s -> %s [%s]",
+                        c["process"], c["pid"], c["local_addr"], c["remote_addr"], c["status"],
+                    )
             
             time.sleep(interval)
     except KeyboardInterrupt:
